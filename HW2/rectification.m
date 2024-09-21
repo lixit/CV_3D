@@ -1,6 +1,6 @@
 function main()
     % Read the image
-    img_path = 'UCF SU.jpg';
+    img_path = 'pictures/tile.jpg';
 
     outim = affine_rect(img_path);
 
@@ -66,15 +66,13 @@ end
 
 function outim = metric_rect_ellipse(path, l_inf)
     % Read the image
-    im = imread('UCF SU.jpg');
+    im = imread(path);
 
     % Show a prompt on the screen
     h = msgbox('Please select 5 points on the image', 'Instructions');
     uiwait(h); % Wait for the user to acknowledge the message box
 
     points_5 = getPoints(im, 5);
-    disp('Coordinates of the five points:');
-    disp(points_5);
 
     H = ellipseRectification(points_5, l_inf);
 
@@ -221,7 +219,7 @@ end
 % Output is the homography H that rectifies the ellipse to a circle
 function H = ellipseRectification(points, l_inf)
     % Get the conic coefficients matrix
-    C = conicfit(points');
+    C = conicfit(points);
     
     % generate 2 points on the line l_inf_prime
     % point m lies on the line if (m)T * l = 0
