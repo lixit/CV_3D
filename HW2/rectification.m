@@ -2,6 +2,11 @@ function main()
     % Read the image
     img_path = 'pictures/tile.jpg';
 
+    % outim = metric_rect_5_pairs_orthogonal_lines(img_path);
+    % five_pairs_rect_filepath = strcat(img_path(1:end-4), '_5_pairs_rect.jpg');
+    % imwrite(outim, five_pairs_rect_filepath);
+    % return;
+
     outim = affine_rect(img_path);
 
     % Save the transformed image
@@ -26,6 +31,9 @@ function outim = affine_rect(img_path)
     l5 = findLineAtInfinity(points_8);
 
     % Let the point transformation be H
+    % x' = H * x
+    % One can verify that H(-T) transforms imaged line at infinity (x, y, z) to its canonical location (0, 0, 1)
+    % l' = H(-T) * l, where l = [x, y, z]T and l' = [0, 0, 1]T
     H_A = [1 0 0; 0 1 0; 0 0 1];
     H = H_A * [1 0 0; 0 1 0; l5(1) l5(2) l5(3)];
 
@@ -51,7 +59,7 @@ function outim = metric_rect_2_perpendicular_lines(img_path)
     % Perform Cholesky decomposition to get the upper triangular matrix K
     K = chol(S, 'upper');
     
-    % Compute the inverse of K
+    % Compute the inverse of K, to reverse the affine transformation
     K_inv = inv(K);
     
     % Construct the homography matrix H
@@ -79,6 +87,42 @@ function outim = metric_rect_ellipse(path, l_inf)
     % Call the TransformImage function
     im2 = imread('UCF SU.jpg');
     outim = Transform_Image2(im2, H);
+
+    show_2_im(im2, outim);
+end
+
+
+function outim = metric_rect_5_pairs_orthogonal_lines(img_path)
+    im2 = imread(img_path);
+
+    points_20 = getPoints(im2, 20, 'Please select 5 pairs of orthogonal lines on the image');
+    lines_10 = getLines(points_20);
+
+    matrix_5_6 = zeros(5, 6);
+
+    for i = 1:5
+        l = lines_10(2*i - 1, :);
+        m = lines_10(2*i, :);
+        matrix_5_6(i, :) = [l(1) * m(1), (l(1) * m(2) + l(2) * m(1))/2,...
+                            l(2) * m(2), (l(1) * m(3) + l(3) * m(1))/2,...
+                            (l(2) * m(3) + l(3) * m(2))/2, l(3) * m(3)];
+    end
+
+    % determine the imaged conic dual to the circular points
+
+    % Compute the null vector
+    [~, ~, V] = svd(matrix_5_6);
+    null_vector = V(:, end);
+
+    % Form the matrix C
+    C = [null_vector(1), null_vector(2)/2, null_vector(4)/2;...
+         null_vector(2)/2, null_vector(3), null_vector(5)/2;...
+         null_vector(4)/2, null_vector(5)/2, null_vector(6)];
+
+    % Perform SVD on C
+    [U, ~, ~] = svd(C);
+
+    outim = Transform_Image2(im2, inv(U));
 
     show_2_im(im2, outim);
 end
