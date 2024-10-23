@@ -14,7 +14,7 @@ function main1
         'MaskSource', 'Input port'); 
 
     for i = 1:numel(tforms)
-        I = imread(images{i});
+        I = imreadort(images{i});
         warpedImage = imwarp(I, tforms(i), 'OutputView', panoramaView);
         mask = imwarp(true(size(I,1),size(I,2)), tforms(i), 'OutputView', panoramaView);
         panorama = step(blender, panorama, warpedImage, mask);
@@ -159,7 +159,7 @@ function show_all(images)
     % Read all images into an array
     imArray = cell(1, numel(images));
     for i = 1:numel(images)
-        imArray{i} = imread(images{i});
+        imArray{i} = imreadort(images{i});
     end
     
     % concatenate all images into a single image
@@ -170,9 +170,9 @@ function show_all(images)
 end
 
 
-function tform = images_2(img1, img2)
-    im1 = imread(img1);
-    im2 = imread(img2);
+function tform = tform_of_2_images(img1, img2)
+    im1 = imreadort(img1);
+    im2 = imreadort(img2);
     %%
     im1 = im2double(im1);
     im1_gray = rgb2gray(im1);
@@ -194,21 +194,21 @@ function tform = images_2(img1, img2)
     % figure;
     % showMatchedFeatures(im1_gray, im2_gray, matchedPt1, matchedPt2);
 
-    [tform,inlierIdx] = estimateGeometricTransform2D(matchedPt2, matchedPt1,...
-            'projective', 'Confidence', 99.9, 'MaxNumTrials', 1000);
+    [~,inlierIdx] = estimateGeometricTransform2D(matchedPt2, matchedPt1,...
+            'projective', 'Confidence', 99.9, 'MaxNumTrials', 1000, 'MaxDistance', 320);
 
-    % % Get the inlier points
-    % inlierPts1 = matchedPt1(inlierIdx, :);
-    % inlierPts2 = matchedPt2(inlierIdx, :);
+    % Get the inlier points
+    inlierPts1 = matchedPt1(inlierIdx, :);
+    inlierPts2 = matchedPt2(inlierIdx, :);
 
-    % % transfer the location to homogeneous coordinates
-    % inlierPts1 = inlierPts1.Location;
-    % inlierPts2 = inlierPts2.Location;
-    % inlierPts1 = [inlierPts1, ones(size(inlierPts1, 1), 1)]';
-    % inlierPts2 = [inlierPts2, ones(size(inlierPts2, 1), 1)]';
+    % transfer the location to homogeneous coordinates
+    inlierPts1 = inlierPts1.Location;
+    inlierPts2 = inlierPts2.Location;
+    inlierPts1 = [inlierPts1, ones(size(inlierPts1, 1), 1)]';
+    inlierPts2 = [inlierPts2, ones(size(inlierPts2, 1), 1)]';
 
-    % H = DLT_algorithm(inlierPts1, inlierPts2);
-    % tform = projective2d(H');
+    H = normalized_DLT(inlierPts2, inlierPts1);
+    tform = projective2d(H');
 end
 
 
@@ -221,7 +221,7 @@ function tforms = get_tforms(images)
     % T(n)*T(n-1)*...*T(1)
     for i = 2:n
 
-        tforms(i) = images_2(images{i-1}, images{i});
+        tforms(i) = tform_of_2_images(images{i-1}, images{i});
 
         % Compute T(n) * T(n-1) * ... * T(1)
         tforms(i).T = tforms(i).T * tforms(i-1).T;
@@ -234,7 +234,7 @@ function [panorama, panoramaView] = get_panorama(tforms, images)
     ImageSize = zeros(n, 2);
     for i = 1:numel(tforms)
 
-        im = imread(images{i});
+        im = imreadort(images{i});
         [height,width,~] = size(im);
         ImageSize(i,:) = [height width];
     end
@@ -274,7 +274,7 @@ function [panorama, panoramaView] = get_panorama(tforms, images)
     height = round(yMax - yMin);
 
     % Initialize the "empty" panorama.
-    panorama = zeros([height width 3], 'like', imread(images{1}));
+    panorama = zeros([height width 3], 'like', imreadort(images{1}));
      
 
     % Create a 2-D spatial reference object defining the size of the panorama.
