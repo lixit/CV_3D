@@ -1,7 +1,7 @@
 % estimate the Fundamental matrix using the 8-point algorithm
 % inputs: x1, x2
 % outputs: F, which is the 3x3 fundamental matrix
-function F = estimate_fundamental_matrix(x1, x2)
+function F = normalized_8_point(x1, x2)
     % x1, x2: 2D points in homogeneous coordinates
     % x1: A Nx3 matrix representing N 2D points in homogeneous coordinates from the first image.
     % x2: A Nx3 matrix representing N 2D points in homogeneous coordinates from the second image.
@@ -78,41 +78,64 @@ function [x1, x2] = find_matching_points(im1, im2)
 
 end
 
+% Display the epipolar lines in both images side by side
+
+function show_epipolar_lines(im1, im2, inlierPts1, inlierPts2, F)
+    % Display the epipolar lines in both images side by side
+    figure('Name', 'Epipolar Lines in Both Images');
+
+    % First subplot: Epipolar lines in Image 1
+    subplot(1, 2, 1);
+    imshow(im1);
+    hold on;
+    plot(inlierPts1(:, 1), inlierPts1(:, 2), 'ro', 'MarkerSize', 5);
+    title('Epipolar Lines in Image 1');
+    for i = 1:size(inlierPts1, 1)
+        epipolarLine = F' * inlierPts2(i, :)';
+        x = 1:size(im1, 2);
+        y = (-epipolarLine(3) - epipolarLine(1) * x) / epipolarLine(2);
+        line(x, y, 'Color', 'g');
+    end
+
+    % Second subplot: Epipolar lines in Image 2
+    subplot(1, 2, 2);
+    imshow(im2);
+    hold on;
+    plot(inlierPts2(:, 1), inlierPts2(:, 2), 'go', 'MarkerSize', 5);
+    title('Epipolar Lines in Image 2');
+    for i = 1:size(inlierPts2, 1)
+        epipolarLine = F * inlierPts1(i, :)';
+        x = 1:size(im2, 2);
+        y = (-epipolarLine(3) - epipolarLine(1) * x) / epipolarLine(2);
+        line(x, y, 'Color', 'r');
+    end
+end
+
 function main1
     
     folder = 'Newkuba/';
     im1=imread(strcat(folder, 'im1.png'));
     im2=imread(strcat(folder, 'im2.png'));
 
-    % Estimate the fundamental matrix
     [matchedPoints1, matchedPoints2] = find_matching_points(im1, im2);
 
+    % Only use the inliers results
     [~, inliers] = estimateFundamentalMatrix(matchedPoints1(:,1:2), matchedPoints2(:,1:2), Method="MSAC", NumTrials=2000);
 
     inlierPts1 = matchedPoints1(inliers,:);
     inlierPts2 = matchedPoints2(inliers,:);
 
-    F = estimate_fundamental_matrix(inlierPts1, inlierPts2);
-
     figure('Name', 'Point Matches After Outliers Are Removed');
     showMatchedFeatures(im1, im2, inlierPts1(:,1:2), inlierPts2(:,1:2), "montage",PlotOptions=["ro","go","y--"]);
     title("Point Matches After Outliers Are Removed");
 
-    % Display the epipolar lines
-    figure('Name', 'Epipolar Lines in Image 1');
-    imshow(im1);
-    hold on;
-    plot(inlierPts1(:, 1), inlierPts1(:, 2), 'ro', 'MarkerSize', 5);
-    title('Epipolar Lines in Image 1');
-    for i = 1:size(inlierPts1, 1)
-        epipolarLine = F * [inlierPts2(i, 1:2), 1]';
-        x = 1:size(im1, 2);
-        y = (-epipolarLine(3) - epipolarLine(1) * x) / epipolarLine(2);
-        line(x, y, 'Color', 'g');
-    end
+    % Estimate the fundamental matrix using the normalized 8-point algorithm
+    F = normalized_8_point(inlierPts1, inlierPts2);
 
-    % estimate the camera projection matrices 𝐏 and 𝐏, given the intrinsic calibration matrix 𝐊
-    % K is fixed
+    % Display the epipolar lines
+    show_epipolar_lines(im1, im2, inlierPts1, inlierPts2, F);
+
+    % estimate the camera projection matrices P1 and P2, given the intrinsic calibration matrix 𝐊
     cam1=[1037.6 0 642.2316;
          0 1043.3 387.8358; 
          0 0 1];
@@ -132,10 +155,10 @@ function main1
     P2 = cam2 * [R, t'];
 
 
-    % Linear triangulation
+    % get 3D point X by use my Linear triangulation 
     X = linbackproj(inlierPts1, inlierPts2, P1, P2);
 
-    % generat 3D point cloud  by a built-in Matlab function called triangulate.
+    % get 3D point X by a built-in function. Used as a ground-truth
     X1 = triangulate(inlierPts1(:,1:2), inlierPts2(:,1:2), P1, P2);
 
     % Compare the 3D points side by side

@@ -1,5 +1,3 @@
-
-
 % Linear triangulation method
 % inputs: x1, x2, P1, P2
 % outputs: X, which is the 3D coordinates of the points in the world frame
@@ -25,6 +23,12 @@ function X = linbackproj(x1, x2, P1, P2)
         X(i,:) = V(:,end)';
     end
     
-    % Convert homogeneous coordinates to non-homogeneous coordinates
-    X = X ./ X(:,4);
+    % Check if any element in the fourth column of X is close to zero
+    epsilon = 1e-10; % Small threshold value
+    if any(abs(X(:,4)) < epsilon)
+        error('Division by zero detected in the fourth column of X. Aborting operation.');
+    else
+        % Convert homogeneous coordinates to non-homogeneous coordinates
+        X = X ./ X(:,4);
+    end
 end
